@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<sub-flow name="invokig-etram-Sub_Flow" doc:id="e42128f3-71b5-48c8-bab1-af1e4d7659ff" >
+<logger level="INFO" doc:name="Log start" doc:id="489b84dd-c010-4de5-9202-d6890b5752f3" message="#['\n===== ' ++ app.name ++ ':' ++ flow.name ++ ' - start =====']"/>
+        <try doc:name="Try" doc:id="e84355ff-fa08-40c7-b2b9-af25dd7bffae" >
+            <logger level="INFO" doc:name="pushing error to etram" doc:id="0e7d0df7-4320-4be2-afa6-e9a7ce282515" message="############### pushing error to etram ################################"/>
+			<ee:transform doc:name="To Etram Notification Json" doc:id="2bfae214-0c28-452a-a203-1adad1abdf2f">
+            <ee:message>
+                    <ee:set-payload resource="dwl/etram_input_payload.dwl" />
+            
+
+</ee:message>
+        </ee:transform>
+            <until-successful maxRetries="${untilsuccessful.maxretries}" doc:name="Until Successful" doc:id="a0dcfd1f-4335-4656-8bb1-863b8ffc48d9" millisBetweenRetries="${untilsuccessful.retryinterval}">
+            <http:request method="POST" doc:name="Invoking etram notification service" doc:id="b813b3a9-3c28-4d68-80bd-8e3516cc2c5c" config-ref="HTTPS_Request_config_etram" path="${etram.path}">
+                <http:headers><![CDATA[#[output application/java
+---
+{
+    "client_secret" : "${secure::etram.headers.client_secret}",
+    "client_id" : "${etram.headers.client_id}"
+}]]]></http:headers>
+            </http:request>
+        </until-successful>
+            <set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    "error": error.description&#10;}]' doc:name="set error" doc:id="fb077444-13c2-4b61-af6f-5be09552c4bf" />
+            <logger level="INFO" doc:name="Logger" doc:id="5f9258cb-4ce1-46a6-8746-34dc4e8dff7d" message="#[payload]" />
+            <error-handler >
+                <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="7784642f-7243-4bad-b1a9-7ed692bc0aeb" type="ANY">
+                    <set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    "error": error.description&#10;}]' doc:name="set notification error" doc:id="52640172-09cb-4db8-9e39-b87028a9581c" />
+                    <logger level="INFO" doc:name="log notification error" doc:id="c6729f75-730d-4389-b86c-31556055c0bb" message="#[payload]" />
+                </on-error-propagate>
+            </error-handler>
+        </try>
+        <logger level="INFO" doc:name="Log end" doc:id="5c3e5faf-265a-42fc-861c-dd8bc1eadfcb" message="#['\n===== ' ++ app.name ++ ':' ++ flow.name ++ ' - end =====']"/>
+	</sub-flow>
+	
+</mule>

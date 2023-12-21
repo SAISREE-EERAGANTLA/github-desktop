@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="a914d24b-4623-44bb-955b-74a0fc902b6a" >
+		<db:oracle-connection host="${db.hostname}" port="${db.port}" user="${db.username}" password="${secure::db.password}" serviceName="${secure::db.servicename}" />
+	</db:config>
+	<anypoint-mq:config name="Anypoint_MQ_Config" doc:name="Anypoint MQ Config" doc:id="8c96f54c-04ba-45b7-99d2-d6ab7be91ae3" >
+		<anypoint-mq:connection clientSecret="${secure::mq.app.secret}" clientId="${mq.app.id}" url="${mq.url}"/>
+	</anypoint-mq:config>
+	<http:request-config name="HTTPS_Request_config_etram" doc:name="HTTP Request configuration" doc:id="37d71d3b-56bd-4b07-96a9-49277beef3f2" >
+		<http:request-connection protocol="HTTPS" host="${etram.host}" port="${etram.port}" />
+	</http:request-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="ddaa5c4f-5ca6-4379-beb0-c875bc82253b" file="${mule.env}.properties" />
+	<global-property doc:name="Global Property" doc:id="f51a9c8e-555a-48bc-82ac-0e2c5f779674" name="mule.env" value="dev" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="a59dd9c3-9aaf-4876-af95-2d3845c7fd94" file="${mule.env}.properties" key="${secure.key}" />
+</mule>

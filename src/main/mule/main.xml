@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd">
+	<sub-flow name="eip-gea-ebs-210-app-Sub_Flow" doc:id="e396eaec-38d6-4af9-a3a5-d7d6ecd6ff3c" >
+		<logger level="INFO" doc:name="Log start" doc:id="8ca2a8f3-9596-493e-8ae2-dc698e5dd632" message="#['===== ' ++ app.name ++ ':' ++ flow.name ++ ' - start =====']"/>
+		<ee:transform doc:name="select, update query" doc:id="8ffc1550-fdb7-4b5c-bdc1-253e9866bb4f" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="ebsquery_update" ><![CDATA[%dw 2.0
+output application/json
+---
+p('ebsquery_update')]]></ee:set-variable>
+				<ee:set-variable variableName="ebsquery_select" ><![CDATA[%dw 2.0
+output application/json
+---
+p('ebsquery_select')]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<until-successful maxRetries="5" doc:name="Until Successful" doc:id="0a4bac69-783f-4d63-84c2-0411896c2839" >
+			<db:select doc:id="1cb95d09-6e1b-432e-8427-a75e359a3234" config-ref="Database_Config" doc:name="Select rows which have eip process flag as N" target="input_payload">
+				<db:sql ><![CDATA[#[vars.ebsquery_select]]]></db:sql>
+			</db:select>
+		</until-successful>
+		<set-variable value="#[[]]" doc:name="published_records" doc:id="828cd6f3-a86f-44eb-b4cb-3b1f2fbd0a92" variableName="published_records"/>
+		<foreach doc:name="For Each" doc:id="ebad31a8-aea0-42a5-b4ec-95474214aaa6" collection="#[vars.input_payload]">
+			<try doc:name="Try" doc:id="09787190-2d8e-4965-a297-eb095a994e36" >
+				<logger level="INFO" doc:name="Logging INVOICE_NUMBER,REQUEST_ID and TRADING_PARTNER_ID" doc:id="c617cedc-66de-46aa-b786-483ac479e340" message='#[%dw 2.0&#10;output application/json&#10;---&#10;"Received record with invoice number: " ++ (payload.INVOICE_NUMBER default "") ++ " with respective request ID: " ++ (payload.REQUEST_ID default "") ++ " for Trading Partner: " ++ (payload.TRADING_PARTNER_ID default "")]'/>
+				<set-variable value='#[%dw 2.0 &#10;output application/json&#10;import * from dw::core::Strings&#10;var customer =  payload."GE_SENDER_ID"as String  default ""&#10;var queueName = "edi-210" ++ "-" ++ customer as String ++ "-queue-" ++ substringAfterLast(p("etram.mule.env"), "-") default ""&#10;---&#10;lower(queueName)]' doc:name="Set queue_name" doc:id="c56cc3d4-0424-4f03-809c-dd6b8eaf4c06" variableName="queue_name"/>
+				<set-variable value="#[payload]" doc:name="original_payload" doc:id="29d70ac9-07dc-4ce7-b6b8-fec3c481834e" variableName="original_payload"/>
+				<anypoint-mq:publish doc:name="Publishing to queue" doc:id="cf8bf885-bc3d-4d5e-92ac-058d06b0becd" config-ref="Anypoint_MQ_Config" destination="#[vars.queue_name]">
+					<anypoint-mq:body ><![CDATA[#[output text/plain
+---
+payload.XML_PAYLOAD]]]></anypoint-mq:body>
+					<anypoint-mq:properties ><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	"trading_partner" : payload.TRADING_PARTNER_ID default "",
+	"invoice_number":payload.INVOICE_NUMBER,
+	"request_id":payload.REQUEST_ID
+}]]]></anypoint-mq:properties>
+				</anypoint-mq:publish>
+				<ee:transform doc:name="Transform payload for updating" doc:id="71b09d2e-3739-41e9-ae98-bd9877f83587" >
+					<ee:message >
+						<ee:set-payload resource="dwl/bulk_update_payload.dwl" />
+					
+</ee:message>
+				</ee:transform>
+				<ee:transform doc:name="Transform Message" doc:id="afde56cc-892b-437b-8fd4-d136b2c1d90b" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="published_records" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.published_records + payload]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="78fc27f3-4b4f-4edc-b04c-fb122ac24160" >
+						<logger level="INFO" doc:name="failed invoice number" doc:id="37250898-b2bd-488b-9d72-eb6cbe92c25b" message="#['the invoice_number failing is: ' ++ payload.INVOICE_NUMBER]"/>
+						<flow-ref doc:name="invoking-etram-sub-flow" doc:id="d6af60b9-6d20-4e3e-b471-9bc6f03b3068" name="invokig-etram-Sub_Flow"/>
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+		<logger level="INFO" doc:name="Log count of rows" doc:id="dd92a54d-38f8-46ca-b128-b8b0901acc63" message="#['count of rows: ' ++ sizeOf(vars.published_records)]"/>
+		<choice doc:name="Choice" doc:id="962f23bd-2248-4913-9f5e-6163f3ae16d7" >
+			<when expression="#[sizeOf(vars.published_records)&gt;0]">
+				<ee:transform doc:name="transform payload for updating" doc:id="910915dd-c892-4736-a550-565e93886c3f" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[output application/json
+---
+vars.published_records]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Logging INVOICE_NUMBER" doc:id="8fcc35e8-db65-4847-bcbc-ef5583a80a74" message="#[payload.INVOICE_NUMBER]"/>
+				<db:bulk-update doc:name="Bulk updating the db changing the eip process flag" doc:id="24cf44ae-64b8-4de5-a527-2b66eef984d0" config-ref="Database_Config">
+					<db:sql ><![CDATA[#[vars.ebsquery_update]]]></db:sql>
+				</db:bulk-update>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="124a5b41-9abf-4c68-9596-a535fa327be2" message="No records found"/>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="028d42d1-db7a-4678-b60d-1ab70b9c343b" message="#['===== ' ++ app.name ++ ':' ++ flow.name ++ ' - end =====']"/>
+		
+	</sub-flow>
+</mule>

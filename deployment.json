@@ -1,0 +1,12 @@
+{
+"DEVIATION": "Yes",
+"XREF": [
+"OXCG-863"
+],
+"PRODUCTION_REPOSITORY": "Yes",
+"DEPLOYMENT_MODEL": "Active-Passive",
+"SOURCE": "ORACLE EBS",
+"SLA_CLASSIFICATION": "Silver",
+"NAME": "eip-gea-ebs-edi-210-app-env",
+"TARGET": "210 Queue"
+}
